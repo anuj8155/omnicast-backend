@@ -11,11 +11,12 @@ const StreamyardClone = () => {
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [currentDateTime, setCurrentDateTime] = useState("2025-02-20 09:30:53");
   const [messages, setMessages] = useState([
-    { id: 1, user: "John Doe", message: "Hello everyone!", timestamp: "09:24:15" },
-    { id: 2, user: "Jane Smith", message: "Great stream!", timestamp: "09:25:30" },
-    { id: 3, user: "Mike Johnson", message: "Looking forward to today's content", timestamp: "09:26:00" }
+    { id: 1, platform: "Local", user: "John Doe", message: "Hello everyone!", timestamp: "09:24:15" },
+    { id: 2, platform: "Local", user: "Jane Smith", message: "Great stream!", timestamp: "09:25:30" },
+    { id: 3, platform: "Local", user: "Mike Johnson", message: "Looking forward to today's content", timestamp: "09:26:00" }
   ]);
   const [newMessage, setNewMessage] = useState("");
+  const [viewerCount, setViewerCount] = useState({}); // { platform: count }
   const socket = useRef(null);
   const connectionAttempts = useRef(0);
 
@@ -62,6 +63,23 @@ const StreamyardClone = () => {
         setIsStreaming(false);
         stopMediaRecorder();
       }
+    });
+
+    socket.current.on("chat_update", (chats) => {
+      setMessages((prev) => [
+        ...prev.filter((msg) => msg.platform === "Local"), // Keep local messages
+        ...chats.map((chat, index) => ({
+          id: prev.length + index + 1,
+          platform: chat.platform,
+          user: chat.user,
+          message: chat.message,
+          timestamp: chat.timestamp,
+        })),
+      ]);
+    });
+
+    socket.current.on("viewer_update", (counts) => {
+      setViewerCount(counts); // Update viewer counts for platforms
     });
 
     getMediaStream();
@@ -184,6 +202,7 @@ const StreamyardClone = () => {
       const timestamp = now.toTimeString().split(' ')[0];
       setMessages(prev => [...prev, {
         id: prev.length + 1,
+        platform: "Local",
         user: "anuj8155",
         message: newMessage.trim(),
         timestamp: timestamp
@@ -250,6 +269,7 @@ const StreamyardClone = () => {
             {messages.map(msg => (
               <div key={msg.id} className="chat-message">
                 <span className="message-timestamp">{msg.timestamp}</span>
+                <span className="message-platform">{msg.platform}</span>
                 <span className="message-user">{msg.user}</span>
                 <span className="message-text">{msg.message}</span>
               </div>
@@ -280,6 +300,22 @@ const StreamyardClone = () => {
             <h3>Stream Status</h3>
             <div className={`status-indicator ${isStreaming ? 'live' : 'ready'}`}>
               {statusMessage}
+            </div>
+          </div>
+
+          <div className="viewer-panel">
+            <h3>Viewer Count</h3>
+            <div className="viewer-stats">
+              {Object.entries(viewerCount).map(([platform, count]) => (
+                <div key={platform} className="viewer-stat">
+                  <span>{platform}: </span>
+                  <span>{count}</span>
+                </div>
+              ))}
+              <div className="viewer-stat">
+                <span>Total: </span>
+                <span>{Object.values(viewerCount).reduce((sum, count) => sum + count, 0)}</span>
+              </div>
             </div>
           </div>
 
